@@ -61,12 +61,25 @@ function HRDAQ4CH_V1_OpeningFcn(hObject, eventdata, handles, varargin)
 
 % axes(handles.backgroundaxes)
 % imshow('background.png');
-[titlecd,maptitle,alphatitle]=imread('title.png','BackgroundColor','none');
+titlecd=imread('title2.png','BackgroundColor','none');
+titleimg = double(titlecd)/255;
+index1= titleimg(:,:,1)==1;
+index2= titleimg(:,:,2)==1;
+index3=titleimg(:,:,3)==1;
+
+indexWhite=index1+index2+index3==3;
+for idx=1:3
+    rgb = titleimg(:,:,idx);
+    rgb(indexWhite) = NaN;
+    titleimg(:,:,idx)=rgb;
+end
+
 % titlehandle=image(title,'Parent',handles.titleaxes);
 % set(titlehandle,'AlphaData',alphatitle);
 % axis(handles.titleaxes,'off')
 % set(handles.titleaxes,'XTickLabel',[],'YTickLabel',[])
-set(handles.titletag,'CData',titlecd);
+set(handles.titletag,'CData',titleimg);
+% set(handles.titletag,'AlphaData',alphatitle);
 
 % [logo,maplogo,alphalogo]=imread('logo.png','BackgroundColor','none');
 % logohandle=image(logo,'Parent',handles.logoaxes);
@@ -313,8 +326,10 @@ if get(handles.connectbtn,'Value')
                         %     set(handles.mssgbox,'String',mssgs);set(handles.mssgbox,'Value',length(mssgs));
                         %     fclose(u);
                         startid=get(handles.startbtn,'Value');
+                        
                         if startid
                             set(handles.startbtn,'String','Stop');
+                            disp('start');
                             mssgs=get(handles.mssgbox,'String');
                             mssgs{end+1}='Measurement started';
                             set(handles.mssgbox,'String',mssgs);set(handles.mssgbox,'Value',length(mssgs));
@@ -327,7 +342,7 @@ if get(handles.connectbtn,'Value')
                             % MAT File write (header)
                             [n,d]=weekday(now);
                             hdate=datestr(now,'mmm dd HH:MM:SS YYYY');
-                            usrheader=['MATLAB 5.0 MAT-file, Platform: ',computer,', Created on: ',d,' ',hdate,', DAQVendor :KM, DAQ : 4CH ANYLOGGER'];
+                            usrheader=['MATLAB 5.0 MAT-file, Platform: ',computer,', Created on: ',d,' ',hdate,', DAQVendor :APROS, DAQ : 4CH DATALOGGER'];
                             [hr,hc]=size(usrheader);
                             uheader=[usrheader,char(ones(1,124-hc)*32)];
                             
@@ -354,10 +369,10 @@ if get(handles.connectbtn,'Value')
                             Fsdata=Fs; % 4
                                                         
                             % wheader=cast(uheader,'char');
-                            if ~isdir(fullfile(tempdir,'ANYLOGGER4CH'))
-                                mkdir(fullfile(tempdir,'ANYLOGGER4CH'));
+                            if ~isdir(fullfile(tempdir,'APROS4CH'))
+                                mkdir(fullfile(tempdir,'APROS4CH'));
                             end
-                            fid=fopen(fullfile(tempdir,'ANYLOGGER4CH',filename),'wb');
+                            fid=fopen(fullfile(tempdir,'APROS4CH',filename),'wb');
                             fwrite(fid,uheader','uint8');
                             fwrite(fid,rversion,'uint8');
                             fwrite(fid,rendian,'uint8');
@@ -461,9 +476,9 @@ if get(handles.connectbtn,'Value')
                                 uiwaitbar(waitbh,u.BytesAvailable/u.InputBufferSize);
                                 
                                 if u.BytesAvailable>=26*ppl
-                                    
                                     bdata=fread(u,26*ppl);
                                     blockdata=buffer(bdata,26);
+                                    
                                     [r,c]=size(blockdata);
                                     for kk=1:c
                                         adcount=blockdata(6,kk)+blockdata(7,kk)*2^8+blockdata(8,kk)*2^16+blockdata(9,kk)*2^24;
@@ -475,11 +490,14 @@ if get(handles.connectbtn,'Value')
                                             adtime(ii)=blockdata(2,kk)+blockdata(3,kk)*2^8+blockdata(4,kk)*2^16+blockdata(5,kk)*2^24;
                                             count(ii)=adcount;
                                             for jj=1:4
-                                                adval(jj)=blockdata(jj*4+6,kk)+blockdata(jj*4+7,kk)*2^8+blockdata(jj*4+8,kk)*2^16+blockdata(jj*4+9,kk)*2^24;
+%                                                 adval(jj)=blockdata(jj*4+6,kk)+blockdata(jj*4+7,kk)*2^8+blockdata(jj*4+8,kk)*2^16+blockdata(jj*4+9,kk)*2^24;
+                                                addata(jj)=typecast(uint8(blockdata(jj*4+6:jj*4+9,kk)),'single');
                                             end
-                                            adval(adval>=2^23)=adval(adval>=2^23)-2^24;
-                                            data=adval*adgain;
-                                            
+%                                             adval(adval>=2^23)=adval(adval>=2^23)-2^24;
+%                                             adval(adval>=2^23)=-adval(adval>=2^23);
+%                                             data=adval*adgain;
+                                            data=addata;
+                                            disp(data);
                                             pi=pi+1;
                                             if ii/Fs<=blocktime
                                                 t=[1:ii]/Fs;
@@ -515,9 +533,9 @@ if get(handles.connectbtn,'Value')
                                             fwrite(u,int8([115 101 13 10]));
                                             fclose(fid);
                                             try
-                                                load(fullfile(tempdir,'ANYLOGGER4CH',filename),'-mat');
+                                                load(fullfile(tempdir,'APROS4CH',filename),'-mat');
                                                 
-                                                delete(fullfile(tempdir,'ANYLOGGER4CH',filename));
+                                                delete(fullfile(tempdir,'APROS4CH',filename));
                                                 sdata.Fs=Fs;
                                                 sdata.signal=signal';
                                                 sdata.unit=unit;
@@ -951,7 +969,7 @@ if ~get(handles.startbtn,'Value')
 %                 colordef white;
             end
         else
-            errordlg('�� ä���ϳ��� �����ؾ��մϴ�.');
+            errordlg('���? ä���ϳ��� �����ؾ��մϴ�.');
         end
     end
 else
